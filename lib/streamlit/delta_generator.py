@@ -20,6 +20,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     Hashable,
     Iterable,
     NoReturn,
@@ -355,15 +356,40 @@ class DeltaGenerator(
         return wrapper
 
     @property
-    def _parent_block_types(self) -> Iterable[str]:
+    def _parent_block_types(self) -> Iterable[Tuple[str, Optional[int]]]:
         """Iterate all the block types used by this DeltaGenerator and all
         its ancestor DeltaGenerators.
         """
         current_dg: Optional[DeltaGenerator] = self
         while current_dg is not None:
             if current_dg._block_type is not None:
-                yield f"{current_dg._block_type}:{current_dg._root_container}"
+                yield current_dg._block_type, current_dg._root_container
             current_dg = current_dg._parent
+
+    def _get_raw_parent_block_types(
+        self, parent_block_types: Iterable[Tuple[str, Optional[int]]]
+    ) -> FrozenSet[str]:
+        parent_block_types_raw = []
+        for parent_block, _ in parent_block_types:
+            parent_block_types_raw.append(parent_block)
+        return frozenset(parent_block_types_raw)
+
+    def _count_num_of_parent_columns(
+        self, parent_block_types: Iterable[Tuple[str, Optional[int]]]
+    ) -> int:
+        num_of_columns = 0
+        for parent_block, _ in parent_block_types:
+            if "column" == parent_block:
+                num_of_columns = num_of_columns + 1
+        return num_of_columns
+
+    def _check_if_one_of_parents_is_a_sidebar(
+        self, parent_block_types: Iterable[Tuple[str, Optional[int]]]
+    ) -> bool:
+        for _, root_container in parent_block_types:
+            if RootContainer.SIDEBAR == root_container:
+                return True
+        return False
 
     @property
     def _cursor(self) -> Optional[Cursor]:
@@ -574,35 +600,22 @@ class DeltaGenerator(
         block_type = block_proto.WhichOneof("type")
         # Convert the generator to a list, so we can use it multiple times.
         parent_block_types = list(dg._parent_block_types)
-        num_of_columns = len(
-            [
-                parent_block
-                for parent_block in parent_block_types
-                if "column" in str(parent_block)
-            ]
-        )
-        parent_block_types = frozenset(parent_block_types)
+
         if block_type == "column":
-            if (
-                len(
-                    [
-                        parent_block
-                        for parent_block in parent_block_types
-                        if "1" in str(parent_block)
-                    ]
-                )
-                > 0
-            ):
-                raise StreamlitAPIException(
-                    "Columns cannot be placed inside other columns in the sidebar. This is only possible in the main area of the app."
-                )
-            if num_of_columns > 1:
+            for _, root_container in parent_block_types:
+                # if one of the parents is a sidebar we should not allow user to create columns
+                if self._check_if_one_of_parents_is_a_sidebar(parent_block_types):
+                    raise StreamlitAPIException(
+                        "Columns cannot be placed inside other columns in the sidebar. This is only possible in the main area of the app."
+                    )
+            if self._count_num_of_parent_columns(parent_block_types) > 1:
                 raise StreamlitAPIException(
                     "Columns can only be placed inside other columns up to one level of nesting."
                 )
-        if block_type == "expandable" and block_type in [
-            block_type.split(":")[0] for block_type in parent_block_types
-        ]:
+        if (
+            block_type == "expandable"
+            and block_type in self._get_raw_parent_block_types(parent_block_types)
+        ):
             raise StreamlitAPIException(
                 "Expanders may not be nested inside other expanders."
             )
