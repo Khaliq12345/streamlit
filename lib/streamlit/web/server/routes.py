@@ -208,9 +208,6 @@ class AllowedMessageOriginsHandler(_SpecialRequestHandler):
         )
         self.set_status(200)
 
-        if config.get_option("server.enableXsrfProtection"):
-            self.set_cookie("_xsrf", self.xsrf_token)
-
 
 class MessageCacheHandler(tornado.web.RequestHandler):
     """Returns ForwardMsgs from our MessageCache"""
