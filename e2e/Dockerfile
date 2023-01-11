@@ -32,6 +32,7 @@ ARG OSTYPE=Linux
 ARG USER=circleci
 ARG HOME=/home/$USER
 ARG APP=$HOME/repo
+ARG DOCKER=true
 
 USER root
 

@@ -362,7 +362,7 @@ class DeltaGenerator(
         current_dg: Optional[DeltaGenerator] = self
         while current_dg is not None:
             if current_dg._block_type is not None:
-                yield current_dg._block_type
+                yield f"{current_dg._block_type}:{current_dg._root_container}"
             current_dg = current_dg._parent
 
     @property
@@ -573,12 +573,36 @@ class DeltaGenerator(
         # Prevent nested columns & expanders by checking all parents.
         block_type = block_proto.WhichOneof("type")
         # Convert the generator to a list, so we can use it multiple times.
-        parent_block_types = frozenset(dg._parent_block_types)
-        if block_type == "column" and block_type in parent_block_types:
-            raise StreamlitAPIException(
-                "Columns may not be nested inside other columns."
-            )
-        if block_type == "expandable" and block_type in parent_block_types:
+        parent_block_types = list(dg._parent_block_types)
+        num_of_columns = len(
+            [
+                parent_block
+                for parent_block in parent_block_types
+                if "column" in str(parent_block)
+            ]
+        )
+        parent_block_types = frozenset(parent_block_types)
+        if block_type == "column":
+            if (
+                len(
+                    [
+                        parent_block
+                        for parent_block in parent_block_types
+                        if "1" in str(parent_block)
+                    ]
+                )
+                > 0
+            ):
+                raise StreamlitAPIException(
+                    "Columns cannot be placed inside other columns in the sidebar. This is only possible in the main area of the app."
+                )
+            if num_of_columns > 1:
+                raise StreamlitAPIException(
+                    "Columns can only be placed inside other columns up to one level of nesting."
+                )
+        if block_type == "expandable" and block_type in [
+            block_type.split(":")[0] for block_type in parent_block_types
+        ]:
             raise StreamlitAPIException(
                 "Expanders may not be nested inside other expanders."
             )
