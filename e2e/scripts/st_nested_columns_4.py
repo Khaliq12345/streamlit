@@ -27,6 +27,7 @@ a few details of the original request. We shouldn't support this!
 
 ---
 """
+np.random.seed(0)
 left_banner, main_area = st.columns([0.05, 0.95])
 with left_banner:
     st.write("⚒️")

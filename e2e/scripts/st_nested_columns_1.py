@@ -46,6 +46,7 @@ subcol2.checkbox("Two")
 subcol3.checkbox("Three")
 subcol4.checkbox("Four")
 
+np.random.seed(0)
 if right_side == "Chart":
     # TODO: Theme doesn't work here. Is that a bug??
     col2.bar_chart(np.random.rand(100))

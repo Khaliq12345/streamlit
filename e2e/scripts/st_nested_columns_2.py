@@ -39,6 +39,7 @@ with col1:
     st.slider("Email", value=68)
     st.slider("Video", value=72)
 
+np.random.seed(0)
 with col2:
     st.header("Predicted ROI")
     st.caption("Each time you update the widgets, the app runs a new prediction.")
